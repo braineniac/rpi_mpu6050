@@ -28,10 +28,17 @@ class MPU6050Node {
     size_t getSampleRate() { return sample_rate; }
     void   poll();
 
+    void signal_f() { signal(SIGINT, MPU6050Node::static_signal_handler); }
+    void signal_handler(int signum);
+
+    static void static_signal_handler(int signum) { instance.signal_handler(signum); }
+
   private:
-    ros::NodeHandle nh;
-    int             sample_rate;
-    std::string     frame_id;
+    static MPU6050Node instance;
+    ros::NodeHandle    nh;
+
+    int         sample_rate;
+    std::string frame_id;
 
     ros::Publisher data_pub;
     ros::Publisher euler_pub;
@@ -54,7 +61,7 @@ class MPU6050Node {
     uint8_t  devStatus;       // return status after each device operation (0 = success, !0 = error)
     uint16_t packetSize;      // expected DMP packet size (default is 42 bytes)
     uint16_t fifoCount;       // count of all bytes currently in FIFO
-    uint8_t  fifoBuffer[64];  // FIFO storage buffer
+    uint8_t  fifoBuffer[64];    // FIFO storage buffer
 
     // covariances
     double angular_velocity_covariance{0.0};
@@ -136,6 +143,14 @@ MPU6050Node::MPU6050Node() {
     }
 }
 
+void MPU6050Node::signal_handler(int signum) {
+
+        ROS_INFO("Shutting down mpu6050_node");
+        mpu.reset();
+
+        ros::shutdown();
+    }
+
 bool MPU6050Node::mpu_setup() {
 
     I2Cdev::initialize();
@@ -153,6 +168,14 @@ bool MPU6050Node::mpu_setup() {
         return DMP_ready;
     }
 
+    mpu.setXAccelOffset(0);
+    mpu.setYAccelOffset(0);
+    mpu.setZAccelOffset(0);
+
+    mpu.setXGyroOffset(0);
+    mpu.setYGyroOffset(0);
+    mpu.setZGyroOffset(0);
+
     mpuIntStatus = mpu.getIntStatus();
     packetSize   = mpu.dmpGetFIFOPacketSize();
     mpu.setDMPEnabled(true);
@@ -166,7 +189,7 @@ void MPU6050Node::poll() {
 
     /* read FIFO */
     fifoCount = mpu.getFIFOCount();
-    if(fifoCount >= 1024) {
+    if(fifoCount < 42 || fifoCount >= 1024) {
         mpu.resetFIFO();
         return;
     }
@@ -292,21 +315,12 @@ void MPU6050Node::publish_imu() {
 
     data_pub.publish(imu_msg);
 }
-
-void SigintHandler(int sig) {
-
-    ROS_INFO("Shutting down mpu6050_node");
-
-    ros::shutdown();
-}
-
 int main(int argc, char** argv) {
 
     ros::init(argc, argv, "mpu6050_node");
     ROS_INFO("Starting mpu6050_node");
     ROS_INFO("Warming up");
 
-    signal(SIGINT, SigintHandler);
 
     MPU6050Node mpu6050_node;
 
