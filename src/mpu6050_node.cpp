@@ -116,7 +116,7 @@ ros::Publisher imu_euler_pub;
 ros::Publisher mag_pub;
 
 /* all the changes I added */
-
+#define AVG_BUF_SIZE 400
 // mpu offsets
 std::vector<double> a = std::vector<double>(3, 0.0);
 std::vector<double> g = std::vector<double>(3, 0.0);
@@ -125,7 +125,7 @@ std::array<std::vector<double>, AVG_BUF_SIZE> a_offset_array;
 std::array<std::vector<double>, AVG_BUF_SIZE> g_offset_array;
 std::array<double, 6> avg;
 
-#define AVG_BUF_SIZE 400
+
 
 ros::Time begin;
 ros::Duration time_offset(30.0);

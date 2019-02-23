@@ -4,6 +4,17 @@ project(rpi_mpu6050)
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++17)
 
+include(ExternalProject)
+
+ExternalProject_Add(bcm2835
+    URL http://www.airspayce.com/mikem/bcm2835/bcm2835-1.58.tar.gz
+    PREFIX ${CATKIN_DEVEL_PREFIX}
+    CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${CATKIN_DEVEL_PREFIX}
+    BUILD_COMMAND make -j$(nproc)
+    INSTALL_COMMAND make install INSTALL_PREFIX=${CATKIN_DEVEL_PREFIX}
+    BUILD_IN_SOURCE 1
+)
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -17,7 +28,6 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -107,9 +117,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
     INCLUDE_DIRS include
     CATKIN_DEPENDS std_msgs std_srvs geometry_msgs
-#  LIBRARIES rpi_mpu6050
-#  CATKIN_DEPENDS other_catkin_pkg
-#  DEPENDS system_lib
+    LIBRARIES bcm2835 rpi_mpu6050
 )
 
 ###########
@@ -118,10 +126,11 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(
-   include  ${catkin_INCLUDE_DIRS}
-   include/I2Cdev
-   include/MPU6050
+include_directories(include
+    ${catkin_INCLUDE_DIRS}
+    ${CATKIN_DEVEL_PREFIX}/include
+    include/I2Cdev
+    include/mpu6050
 )
 
 ## Declare a C++ library
@@ -141,7 +150,7 @@ include_directories(
 add_executable(mpu6050_node
     src/mpu6050_node.cpp
     include/I2Cdev/I2Cdev.cpp
-    include/MPU6050/MPU6050.cpp
+    include/mpu6050/MPU6050.cpp
 )
 
 ## Rename C++ executable without prefix
@@ -160,10 +169,10 @@ add_executable(mpu6050_node
 # )
 target_link_libraries(mpu6050_node
    ${catkin_LIBRARIES}
-   bcm2835
+   ${CATKIN_DEVEL_PREFIX}/lib/libbcm2835.a
    m
 )
-
+add_dependencies(mpu6050_node bcm2835)
 #############
 ## Install ##
 #############
