@@ -17,6 +17,7 @@
 
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
+#define USE_OLD_DMPGETYAWPITCHROLL
 
 #include <vector>
 #include <array>
@@ -125,10 +126,8 @@ std::array<std::vector<double>, AVG_BUF_SIZE> a_offset_array;
 std::array<std::vector<double>, AVG_BUF_SIZE> g_offset_array;
 std::array<double, 6> avg;
 
-
-
 ros::Time begin;
-ros::Duration time_offset(30.0);
+ros::Duration time_offset(50.0);
 bool avgdone = false;
 int setuptime;
 
