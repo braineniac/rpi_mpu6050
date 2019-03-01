@@ -8,6 +8,7 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
+#include <ros/console.h>
 #include <geometry_msgs/Vector3Stamped.h>
 #include <std_msgs/Bool.h>
 #include <std_srvs/Empty.h>
@@ -20,7 +21,7 @@
 #include <vector>
 #include <array>
 
-#define AVG_BUF_SIZE 400 // offset buffer size after warmup
+#define AVG_BUF_SIZE 200 // offset buffer size after warmup
 
 class MPU6050Node {
   public:
@@ -47,7 +48,7 @@ class MPU6050Node {
     // Time
     ros::Time     begin;
     ros::Time     now;
-    ros::Duration warmup_time{50.0};
+    ros::Duration warmup_time{90.0};
 
     // flags
     bool warmup_done{false};
@@ -106,8 +107,8 @@ MPU6050Node::MPU6050Node() {
     begin = ros::Time::now();
 
     /* setting parameters from launch file */
-    nh.param<std::string>("frame_id", frame_id, "base_imu");
-    nh.param("sample_rate", sample_rate, 50);
+    nh.param<std::string>("frame_id", frame_id, "imu_link");
+    nh.param("sample_rate", sample_rate, 10);
     nh.param("ado", ado, false);
     // NOISE PERFORMANCE: Power Spectral Density @10Hz, AFS_SEL=0 & ODR=1kHz 400 ug/√Hz
     nh.param("linear_acceleration_stdev", linear_acceleration_stdev, (400 / 1000000.0) * 9.807);
@@ -205,9 +206,9 @@ void MPU6050Node::poll() {
     // and http://docs.ros.org/api/sensor_msgs/html/msg/Imu.html
     // should be in m/s^2.
     // 1g = 9.80665 m/s^2, so we go arbitrary -> g -> m/s^s
-    la[0] = aaReal.x * 1 / 16384. * 9.80665 + a_offset[0];
-    la[1] = aaReal.y * 1 / 16384. * 9.80665 + a_offset[1];
-    la[2] = aaReal.z * 1 / 16384. * 9.80665 + a_offset[2];
+    la[0] = aaReal.x * 1 / 8192. * 9.80655 + a_offset[0];
+    la[1] = aaReal.y * 1 / 8192. * 9.80655 + a_offset[1];
+    la[2] = aaReal.z * 1 / 8192. * 9.80655 + a_offset[2];
 
     av[0] = ypr[2] + g_offset[0];
     av[1] = ypr[1] + g_offset[1];
@@ -223,6 +224,7 @@ bool MPU6050Node::wait_for_warmup() {
     if((now - begin - warmup_time).toSec() > 0 && !warmup_done) {
 
         ROS_INFO("Warmup finished");
+        ROS_INFO("Collecting data for offsets");
         warmup_done = true;
     }
 
@@ -236,12 +238,12 @@ bool MPU6050Node::set_offsets() {
 
         for(int i = 0; i < a_offset_array.size(); i++) {
             // add only sane values, leave the rest 0.0
-            if(la[0] < 1) { a_offset_array[i][0] = la[0]; }
-            if(la[1] < 1) { a_offset_array[i][1] = la[1]; }
-            if(la[2] < 1) { a_offset_array[i][2] = la[2]; }
-            if(av[2] < 1) { g_offset_array[i][0] = av[0]; }
-            if(av[1] < 1) { g_offset_array[i][1] = av[1]; }
-            if(av[0] < 1) { g_offset_array[i][2] = av[2]; }
+            if(fabs(la[0]) < 20) { a_offset_array[i][0] = la[0]; }
+            if(fabs(la[1]) < 20) { a_offset_array[i][1] = la[1]; }
+            if(fabs(la[2]) < 20) { a_offset_array[i][2] = la[2]; }
+            if(fabs(av[2]) < 20) { g_offset_array[i][0] = av[0]; }
+            if(fabs(av[1]) < 20) { g_offset_array[i][1] = av[1]; }
+            if(fabs(av[0]) < 20) { g_offset_array[i][2] = av[2]; }
         }
         return avg_done;
     }
@@ -265,7 +267,13 @@ bool MPU6050Node::set_offsets() {
         g_offset[1] = -avg[4];
         g_offset[2] = -avg[5];
 
-        ROS_INFO("Setting offsets");
+        // ROS_INFO_STREAM(avg[0]);
+        // ROS_INFO_STREAM(avg[1]);
+        // ROS_INFO_STREAM(avg[2]);
+        // ROS_INFO_STREAM(avg[3]);
+        // ROS_INFO_STREAM(avg[4]);
+        // ROS_INFO_STREAM(avg[5]);
+
         ROS_INFO("Setup finished");
 
         avg_done = true;
@@ -313,14 +321,18 @@ void MPU6050Node::publish_imu() {
     imu_msg.linear_acceleration.y = la[1];
     imu_msg.linear_acceleration.z = la[2];
 
-    data_pub.publish(imu_msg);
+    // only publish if values are somewhat sane
+    if((fabs(la[0]) < 1) && (fabs(la[1]) < 1) && (fabs(la[2]) < 1) && (fabs(av[2]) < 1) && (fabs(av[1]) < 1)  && (fabs(av[0]) < 1)) {
+        //if(fabs(la[0]) < 0.2) { imu_msg.linear_acceleration.x = 0.0; }
+        //if(fabs(la[1]) < 0.2) { imu_msg.linear_acceleration.y = 0.0; }
+        data_pub.publish(imu_msg);
+    }
 }
 int main(int argc, char** argv) {
 
     ros::init(argc, argv, "mpu6050_node");
     ROS_INFO("Starting mpu6050_node");
     ROS_INFO("Warming up");
-
 
     MPU6050Node mpu6050_node;
 
