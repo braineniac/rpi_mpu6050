@@ -120,7 +120,7 @@ MPU6050Node::MPU6050Node() {
     nh.param("yaw_stdev", yaw_stdev, 5.0 * (M_PI / 180.0));
 
     /* setting publishers */
-    data_pub  = nh.advertise<sensor_msgs::Imu>("imu/data", sample_rate);
+    data_pub  = nh.advertise<sensor_msgs::Imu>("imu/data_raw", sample_rate);
     euler_pub = nh.advertise<geometry_msgs::Vector3Stamped>("imu/euler", sample_rate);
     mag_pub   = nh.advertise<geometry_msgs::Vector3Stamped>("imu/mag", sample_rate);
 
