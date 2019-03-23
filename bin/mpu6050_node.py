@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from sensor_msgs import Imu
+from sensor_msgs.msg import Imu
 import numpy as np
 
 from mpu6050 import mpu6050
@@ -13,19 +13,20 @@ class MPU6050Node:
 
         self.offset_done = False
 
-        self.linear_acceleration = np.zeros(1,3)
-        self.angular_velocity = np.zeros(1,3)
+        self.linear_acceleration = np.zeros(3)
+        self.angular_velocity = np.zeros(3)
         self.temp = 0.0
 
-        self.la_offset = 0.0
-        self.av_offset = 0.0
+        self.la_offset = np.zeros(3)
+        self.av_offset = np.zeros(3)
 
-        self.offset_array = np.zeros(6,1000)
+        self.offset_array = []
+        self.offset_array = np.zeros((6,200))
         self.offset_array[:] = np.nan
 
-        self.linear_acceleration_covariance = np.zeros(1,9)
-        self.angular_velocity_covariance = np.zeros(1,9)
-        self.orientation_covariance = np.zeros(1,9)
+        self.linear_acceleration_covariance = np.zeros(9)
+        self.angular_velocity_covariance = np.zeros(9)
+        self.orientation_covariance = np.zeros(9)
 
         rospy.loginfo("Setting covariances")
         self.set_covariances()
@@ -45,23 +46,32 @@ class MPU6050Node:
             self.get_offsets()
 
     def get_offsets(self):
-        for accel_x,accel_y,accel_z in [self.offset_array[0:],self.offset_array[1:],self.offset_array[2:]]:
-            if accel_x == np.nan:
-                accel_x = self.linear_acceleration[0]
-            if accel_y == np.nan:
-                accel_y = self.linear_acceleration[1]
-            if accel_z == np.nan:
-                accel_z = self.linear_acceleration[2]
 
-        for vel_x,vel_y,vel_z in [self.offset_array[3:], self.offset_array[4:],self.offset_array[5:]]:
-            if vel_x == np.nan:
-                vel_x = self.angular_velocity[0]
-            if vel_y == np.nan:
-                vel_y = self.angular_velocity[1]
-            if vel_z == np.nan:
-                vel_z = self.angular_velocity[2]
+        for accel_x in np.nditer(self.offset_array[0], op_flags=['readwrite']):
+            if np.isnan(accel_x):
+                accel_x[...] = self.linear_acceleration[0]
 
-        if self.offset_array[0:-1] != np.nan:
+        for accel_y in np.nditer(self.offset_array[1], op_flags=['readwrite']):
+            if np.isnan(accel_y):
+                accel_y[...] = self.linear_acceleration[1]
+
+        for accel_z in np.nditer(self.offset_array[2], op_flags=['readwrite']):
+            if np.isnan(accel_z):
+                accel_z[...] = self.linear_acceleration[2]
+
+        for vel_x in np.nditer(self.offset_array[3], op_flags=['readwrite']):
+            if np.isnan(vel_x):
+                vel_x[...] = self.angular_velocity[0]
+
+        for vel_y in np.nditer(self.offset_array[4], op_flags=['readwrite']):
+            if np.isnan(vel_y):
+                vel_y[...] = self.angular_velocity[1]
+
+        for vel_z in np.nditer(self.offset_array[5], op_flags=['readwrite']):
+            if np.isnan(vel_z):
+                vel_z[...] = self.angular_velocity[2]
+
+        if not np.isnan(self.offset_array[0,-1]):
             self.set_offsets()
             rospy.loginfo("Offsets set")
 
@@ -72,16 +82,16 @@ class MPU6050Node:
             rospy.loginfo("Offset angular y={}".format(self.av_offset[1]))
             rospy.loginfo("Offset angular z={}".format(self.av_offset[2]))
 
-            self.offset_done = true
+            self.offset_done = True
 
     def set_offsets(self):
-        self.la_offset[0] = np.average(self.offset_array[0:])
-        self.la_offset[1] = np.average(self.offset_array[1:])
-        self.la_offset[2] = np.average(self.offset_array[2:])
+        self.la_offset[0] = np.average(self.offset_array[0])
+        self.la_offset[1] = np.average(self.offset_array[1])
+        self.la_offset[2] = np.average(self.offset_array[2])
 
-        self.av_offset[0] = np.average(self.offset_array[3:])
-        self.av_offset[1] = np.average(self.offset_array[4:])
-        self.av_offset[2] = np.average(self.offset_array[5:])
+        self.av_offset[0] = np.average(self.offset_array[3])
+        self.av_offset[1] = np.average(self.offset_array[4])
+        self.av_offset[2] = np.average(self.offset_array[5])
 
     def set_covariances(self):
         linear_acceleration_stdev = (400/1000000) * 9.80655
@@ -91,7 +101,7 @@ class MPU6050Node:
 
         linear_acceleration_covariance = linear_acceleration_stdev * linear_acceleration_stdev
         angular_velocity_covariance = angular_velocity_stdev * angular_velocity_stdev
-        pitch_roll_covariance = pitch_roll_covariance * pitch_roll_covariance
+        pitch_roll_covariance = pitch_roll_stdev * pitch_roll_stdev
         yaw_covariance = yaw_stdev * yaw_stdev
 
         self.linear_acceleration_covariance[0] = linear_acceleration_covariance
@@ -133,13 +143,13 @@ if __name__ == '__main__':
     mpu6050_node = MPU6050Node()
 
     rospy.loginfo("Warming up")
-    rospy.sleep(30)
+    #rospy.sleep(30)
 
     rospy.loginfo("Gathering data for offsets")
 
-    rate = rospy.Rate(40)
+    rate = rospy.Rate(10)
     while not rospy.is_shutdown():
         mpu6050_node.poll()
         if mpu6050_node.offset_done:
-            mpu6050.publish()
+            mpu6050_node.publish()
         rate.sleep()
