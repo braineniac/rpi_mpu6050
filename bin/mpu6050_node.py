@@ -20,8 +20,7 @@ class MPU6050Node:
         self.la_offset = np.zeros(3)
         self.av_offset = np.zeros(3)
 
-        self.offset_array = []
-        self.offset_array = np.zeros((6,200))
+        self.offset_array = np.zeros((6,100000))
         self.offset_array[:] = np.nan
 
         self.linear_acceleration_covariance = np.zeros(9)
@@ -133,6 +132,14 @@ class MPU6050Node:
         imu_msg.angular_velocity.y = self.angular_velocity[1] - self.av_offset[1]
         imu_msg.angular_velocity.z = self.angular_velocity[2] - self.av_offset[2]
 
+        if abs(self.angular_velocity[2] - self.av_offset[2]) < 5:
+            imu_msg.linear_acceleration.x = 0.0
+            imu_msg.linear_acceleration.y = 0.0
+            imu_msg.linear_acceleration.z = 0.0
+            imu_msg.angular_velocity.x = 0.0
+            imu_msg.angular_velocity.y = 0.0
+            imu_msg.angular_velocity.z = 0.0
+
         self.imu_pub.publish(imu_msg)
 
 
@@ -143,11 +150,11 @@ if __name__ == '__main__':
     mpu6050_node = MPU6050Node()
 
     rospy.loginfo("Warming up")
-    #rospy.sleep(30)
+    rospy.sleep(20)
 
     rospy.loginfo("Gathering data for offsets")
 
-    rate = rospy.Rate(10)
+    rate = rospy.Rate(200)
     while not rospy.is_shutdown():
         mpu6050_node.poll()
         if mpu6050_node.offset_done:
