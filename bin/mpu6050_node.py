@@ -31,15 +31,19 @@ class MPU6050Node:
         self.set_covariances()
 
     def poll(self):
-        self.linear_acceleration[0] = self.mpu6050.get_accel_data()['x']
-        self.linear_acceleration[1] = self.mpu6050.get_accel_data()['y']
-        self.linear_acceleration[2] = self.mpu6050.get_accel_data()['z']
+        try:
+            self.linear_acceleration[0] = self.mpu6050.get_accel_data()['x']
+            self.linear_acceleration[1] = self.mpu6050.get_accel_data()['y']
+            self.linear_acceleration[2] = self.mpu6050.get_accel_data()['z']
 
-        self.angular_velocity[0] = self.mpu6050.get_gyro_data()['x']
-        self.angular_velocity[1] = self.mpu6050.get_gyro_data()['y']
-        self.angular_velocity[2] = self.mpu6050.get_gyro_data()['z']
+            self.angular_velocity[0] = self.mpu6050.get_gyro_data()['x']
+            self.angular_velocity[1] = self.mpu6050.get_gyro_data()['y']
+            self.angular_velocity[2] = self.mpu6050.get_gyro_data()['z']
 
-        self.temp = self.mpu6050.get_temp()
+            self.temp = self.mpu6050.get_temp()
+        except:
+            #rospy.loginfo("Exception caught")
+            return
 
         if not self.offset_done:
             self.get_offsets()
@@ -128,11 +132,11 @@ class MPU6050Node:
         imu_msg.linear_acceleration.y = self.linear_acceleration[1] - self.la_offset[1]
         imu_msg.linear_acceleration.z = self.linear_acceleration[2] - self.la_offset[2]
 
-        imu_msg.angular_velocity.x = self.angular_velocity[0] - self.av_offset[0]
-        imu_msg.angular_velocity.y = self.angular_velocity[1] - self.av_offset[1]
-        imu_msg.angular_velocity.z = self.angular_velocity[2] - self.av_offset[2]
+        imu_msg.angular_velocity.x = (self.angular_velocity[0] - self.av_offset[0]) * (np.pi / 180.0)
+        imu_msg.angular_velocity.y = (self.angular_velocity[1] - self.av_offset[1]) * (np.pi / 180.0)
+        imu_msg.angular_velocity.z = (self.angular_velocity[2] - self.av_offset[2]) * (np.pi / 180.0)
 
-        if abs(self.angular_velocity[2] - self.av_offset[2]) < 5:
+        if abs(self.angular_velocity[2] - self.av_offset[2]) < 3:
             imu_msg.linear_acceleration.x = 0.0
             imu_msg.linear_acceleration.y = 0.0
             imu_msg.linear_acceleration.z = 0.0
@@ -154,7 +158,7 @@ if __name__ == '__main__':
 
     rospy.loginfo("Gathering data for offsets")
 
-    rate = rospy.Rate(200)
+    rate = rospy.Rate(500)
     while not rospy.is_shutdown():
         mpu6050_node.poll()
         if mpu6050_node.offset_done:
