@@ -136,13 +136,13 @@ class MPU6050Node:
         imu_msg.angular_velocity.y = (self.angular_velocity[1] - self.av_offset[1]) * (np.pi / 180.0)
         imu_msg.angular_velocity.z = (self.angular_velocity[2] - self.av_offset[2]) * (np.pi / 180.0)
 
-        if abs(self.angular_velocity[2] - self.av_offset[2]) < 3:
-            imu_msg.linear_acceleration.x = 0.0
-            imu_msg.linear_acceleration.y = 0.0
-            imu_msg.linear_acceleration.z = 0.0
-            imu_msg.angular_velocity.x = 0.0
-            imu_msg.angular_velocity.y = 0.0
-            imu_msg.angular_velocity.z = 0.0
+        #if abs(self.angular_velocity[2] - self.av_offset[2]) < 3:
+        #    imu_msg.linear_acceleration.x = 0.0
+        #    imu_msg.linear_acceleration.y = 0.0
+        #    imu_msg.linear_acceleration.z = 0.0
+        #    imu_msg.angular_velocity.x = 0.0
+        #    imu_msg.angular_velocity.y = 0.0
+        #    imu_msg.angular_velocity.z = 0.0
 
         self.imu_pub.publish(imu_msg)
 
