@@ -1,3 +1,0 @@
-<launch>
-  <node name="mpu6050py_node" pkg="rpi_mpu6050" type="mpu6050_node.py" output="screen"/>
-</launch>

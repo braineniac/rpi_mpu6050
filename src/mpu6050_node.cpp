@@ -108,7 +108,7 @@ MPU6050Node::MPU6050Node() {
 
     /* setting parameters from launch file */
     nh.param<std::string>("frame_id", frame_id, "imu_link");
-    nh.param("sample_rate", sample_rate, 10);
+    nh.param("sample_rate", sample_rate, 40);
     nh.param("ado", ado, false);
     // NOISE PERFORMANCE: Power Spectral Density @10Hz, AFS_SEL=0 & ODR=1kHz 400 ug/√Hz
     nh.param("linear_acceleration_stdev", linear_acceleration_stdev, (400 / 1000000.0) * 9.807);
@@ -201,11 +201,6 @@ void MPU6050Node::poll() {
     mpu.dmpGetAccel(&aa, fifoBuffer);
     mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
 
-    // By default, accel is in arbitrary units with a scale of 16384/1g.
-    // Per http://www.ros.org/reps/rep-0103.html
-    // and http://docs.ros.org/api/sensor_msgs/html/msg/Imu.html
-    // should be in m/s^2.
-    // 1g = 9.80665 m/s^2, so we go arbitrary -> g -> m/s^s
     la[0] = aaReal.x * 1 / 8192. * 9.80655 + a_offset[0];
     la[1] = aaReal.y * 1 / 8192. * 9.80655 + a_offset[1];
     la[2] = aaReal.z * 1 / 8192. * 9.80655 + a_offset[2];
@@ -237,13 +232,13 @@ bool MPU6050Node::set_offsets() {
     if((now - begin - warmup_time).toSec() - int(AVG_BUF_SIZE / sample_rate + 1) < 0) {
 
         for(int i = 0; i < a_offset_array.size(); i++) {
-            // add only sane values, leave the rest 0.0
-            if(fabs(la[0]) < 20) { a_offset_array[i][0] = la[0]; }
-            if(fabs(la[1]) < 20) { a_offset_array[i][1] = la[1]; }
-            if(fabs(la[2]) < 20) { a_offset_array[i][2] = la[2]; }
-            if(fabs(av[2]) < 20) { g_offset_array[i][0] = av[0]; }
-            if(fabs(av[1]) < 20) { g_offset_array[i][1] = av[1]; }
-            if(fabs(av[0]) < 20) { g_offset_array[i][2] = av[2]; }
+								if(fabs(la[0]) < 30) { a_offset_array[i][0] = la[0]; }
+								if(fabs(la[1]) < 30) { a_offset_array[i][1] = la[1]; }
+								if(fabs(la[2]) < 30) { a_offset_array[i][2] = la[2]; }
+								if(fabs(av[0]) < 30) { g_offset_array[i][0] = av[0]; }
+								if(fabs(av[1]) < 30) { g_offset_array[i][1] = av[1]; }
+								if(fabs(av[2]) < 30) { g_offset_array[i][2] = av[2]; }
+
         }
         return avg_done;
     }
@@ -267,12 +262,12 @@ bool MPU6050Node::set_offsets() {
         g_offset[1] = -avg[4];
         g_offset[2] = -avg[5];
 
-        // ROS_INFO_STREAM(avg[0]);
-        // ROS_INFO_STREAM(avg[1]);
-        // ROS_INFO_STREAM(avg[2]);
-        // ROS_INFO_STREAM(avg[3]);
-        // ROS_INFO_STREAM(avg[4]);
-        // ROS_INFO_STREAM(avg[5]);
+        ROS_INFO_STREAM("Offset linear accel x: " + std::to_string(avg[0]));
+        ROS_INFO_STREAM("Offset linear accel y: " + std::to_string(avg[1]));
+        ROS_INFO_STREAM("Offset linear accel z: " + std::to_string(avg[2]));
+        ROS_INFO_STREAM("Offset angular vel x: " + std::to_string(avg[3]));
+        ROS_INFO_STREAM("Offset angular vel y: " + std::to_string(avg[4]));
+        ROS_INFO_STREAM("Offset angular vel z: " + std::to_string(avg[5]));
 
         ROS_INFO("Setup finished");
 
@@ -321,13 +316,11 @@ void MPU6050Node::publish_imu() {
     imu_msg.linear_acceleration.y = la[1];
     imu_msg.linear_acceleration.z = la[2];
 
-    // only publish if values are somewhat sane
-    if((fabs(la[0]) < 1) && (fabs(la[1]) < 1) && (fabs(la[2]) < 1) && (fabs(av[2]) < 1) && (fabs(av[1]) < 1)  && (fabs(av[0]) < 1)) {
-        //if(fabs(la[0]) < 0.2) { imu_msg.linear_acceleration.x = 0.0; }
-        //if(fabs(la[1]) < 0.2) { imu_msg.linear_acceleration.y = 0.0; }
-        data_pub.publish(imu_msg);
-    }
+		if((fabs(la[0])<1)&&(fabs(la[1])<1)&&(fabs(la[2])<1)) {
+						data_pub.publish(imu_msg);
+		}
 }
+
 int main(int argc, char** argv) {
 
     ros::init(argc, argv, "mpu6050_node");
@@ -339,7 +332,12 @@ int main(int argc, char** argv) {
     ros::Rate r(mpu6050_node.getSampleRate());
 
     while(ros::ok()) {
-        mpu6050_node.poll();
+        try {
+            mpu6050_node.poll();
+        }
+        catch (const std::exception& e) {
+            ROS_INFO("Exception caught");
+        }
         ros::spinOnce();
         r.sleep();
     }
