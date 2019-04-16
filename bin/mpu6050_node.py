@@ -32,15 +32,17 @@ class MPU6050Node:
 
     def poll(self):
         try:
-            self.linear_acceleration[0] = self.mpu6050.get_accel_data()['x']
-            self.linear_acceleration[1] = self.mpu6050.get_accel_data()['y']
-            self.linear_acceleration[2] = self.mpu6050.get_accel_data()['z']
+            accel_data =self.mpu6050.get_accel_data()
+            gyro_data = self.mpu6050.get_gyro_data()
+            self.linear_acceleration[0] = accel_data['x']
+            self.linear_acceleration[1] = accel_data['y']
+            self.linear_acceleration[2] = accel_data['z']
 
-            self.angular_velocity[0] = self.mpu6050.get_gyro_data()['x']
-            self.angular_velocity[1] = self.mpu6050.get_gyro_data()['y']
-            self.angular_velocity[2] = self.mpu6050.get_gyro_data()['z']
+            self.angular_velocity[0] = gyro_data['x']
+            self.angular_velocity[1] = gyro_data['y']
+            self.angular_velocity[2] = gyro_data['z']
 
-            self.temp = self.mpu6050.get_temp()
+            #self.temp = self.mpu6050.get_temp()
         except:
             #rospy.loginfo("Exception caught")
             return
