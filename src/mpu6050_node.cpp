@@ -232,13 +232,12 @@ bool MPU6050Node::set_offsets() {
     if((now - begin - warmup_time).toSec() - int(AVG_BUF_SIZE / sample_rate + 1) < 0) {
 
         for(int i = 0; i < a_offset_array.size(); i++) {
-								if(fabs(la[0]) < 30) { a_offset_array[i][0] = la[0]; }
-								if(fabs(la[1]) < 30) { a_offset_array[i][1] = la[1]; }
-								if(fabs(la[2]) < 30) { a_offset_array[i][2] = la[2]; }
-								if(fabs(av[0]) < 30) { g_offset_array[i][0] = av[0]; }
-								if(fabs(av[1]) < 30) { g_offset_array[i][1] = av[1]; }
-								if(fabs(av[2]) < 30) { g_offset_array[i][2] = av[2]; }
-
+            if(fabs(la[0]) < 30) { a_offset_array[i][0] = la[0]; }
+            if(fabs(la[1]) < 30) { a_offset_array[i][1] = la[1]; }
+            if(fabs(la[2]) < 30) { a_offset_array[i][2] = la[2]; }
+            if(fabs(av[0]) < 30) { g_offset_array[i][0] = av[0]; }
+            if(fabs(av[1]) < 30) { g_offset_array[i][1] = av[1]; }
+            if(fabs(av[2]) < 30) { g_offset_array[i][2] = av[2]; }
         }
         return avg_done;
     }
