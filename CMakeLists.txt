@@ -153,6 +153,11 @@ add_executable(mpu6050_node
     include/I2Cdev/I2Cdev.cpp
     include/mpu6050/MPU6050.cpp
 )
+add_executable(mpu6050_raw_node
+    src/mpu6050_raw_node.cpp
+    include/I2Cdev/I2Cdev.cpp
+    include/mpu6050/MPU6050.cpp
+)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -173,7 +178,13 @@ target_link_libraries(mpu6050_node
    ${CATKIN_DEVEL_PREFIX}/lib/libbcm2835.a
    m
 )
+target_link_libraries(mpu6050_raw_node
+   ${catkin_LIBRARIES}
+   ${CATKIN_DEVEL_PREFIX}/lib/libbcm2835.a
+   m
+)
 add_dependencies(mpu6050_node bcm2835)
+add_dependencies(mpu6050_raw_node bcm2835)
 #############
 ## Install ##
 #############

@@ -34,6 +34,7 @@ class MPU6050Node:
         try:
             accel_data =self.mpu6050.get_accel_data()
             gyro_data = self.mpu6050.get_gyro_data()
+
             self.linear_acceleration[0] = accel_data['x']
             self.linear_acceleration[1] = accel_data['y']
             self.linear_acceleration[2] = accel_data['z']

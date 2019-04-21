@@ -16,7 +16,7 @@
 #include <tf/transform_datatypes.h>
 
 #include "I2Cdev.h"
-#include "MPU6050_6Axis_MotionApps20.h"
+#include "MPU6050.h"
 
 #include <vector>
 #include <array>
@@ -85,15 +85,17 @@ class MPU6050Node {
     std::vector<double>   g_offset;
 
     // orientation/motion vars
-    Quaternion  q;           // [w, x, y, z]         quaternion container
-    VectorInt16 aa;          // [x, y, z]            accel sensor measurements
-    VectorInt16 aaReal;      // [x, y, z]            gravity-free accel sensor measurements
-    VectorInt16 aaWorld;     // [x, y, z]            world-frame accel sensor measurements
-    VectorFloat gravity;     // [x, y, z]            gravity vector
+    //Quaternion  q;           // [w, x, y, z]         quaternion container
+    //VectorInt16 aa;          // [x, y, z]            accel sensor measurements
+    //VectorInt16 aaReal;      // [x, y, z]            gravity-free accel sensor measurements
+    //VectorInt16 aaWorld;     // [x, y, z]            world-frame accel sensor measurements
+    //VectorFloat gravity;     // [x, y, z]            gravity vector
     float       euler[3];    // [psi, theta, phi]    Euler angle container
     float       ypr[3];      // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
     float       la[3];       // [x, y, z]
     float       av[3];
+    int16_t ax, ay, az;
+    int16_t gx, gy, gz;
 
     // methods
     bool mpu_setup();
@@ -101,14 +103,13 @@ class MPU6050Node {
     bool set_offsets();
     void publish_imu();
 };
-
 MPU6050Node::MPU6050Node() {
 
     begin = ros::Time::now();
 
     /* setting parameters from launch file */
     nh.param<std::string>("frame_id", frame_id, "imu_link");
-    nh.param("sample_rate", sample_rate, 40);
+    nh.param("sample_rate", sample_rate, 1000);
     nh.param("ado", ado, false);
     // NOISE PERFORMANCE: Power Spectral Density @10Hz, AFS_SEL=0 & ODR=1kHz 400 ug/√Hz
     nh.param("linear_acceleration_stdev", linear_acceleration_stdev, (400 / 1000000.0) * 9.807);
@@ -162,24 +163,9 @@ bool MPU6050Node::mpu_setup() {
         return DMP_ready;
     }
 
-    devStatus = mpu.dmpInitialize();
+    mpu.initialize();
 
-    if(devStatus) {
-        ROS_ERROR("DMP Initialization failed\n");
-        return DMP_ready;
-    }
 
-    mpu.setXAccelOffset(0);
-    mpu.setYAccelOffset(0);
-    mpu.setZAccelOffset(0);
-
-    mpu.setXGyroOffset(0);
-    mpu.setYGyroOffset(0);
-    mpu.setZGyroOffset(0);
-
-    mpuIntStatus = mpu.getIntStatus();
-    packetSize   = mpu.dmpGetFIFOPacketSize();
-    mpu.setDMPEnabled(true);
     DMP_ready = true;
     return DMP_ready;
 }
@@ -188,26 +174,15 @@ void MPU6050Node::poll() {
 
     now = ros::Time::now();
 
-    /* read FIFO */
-    fifoCount = mpu.getFIFOCount();
-    if(fifoCount < 42 || fifoCount >= 1024) {
-        mpu.resetFIFO();
-        return;
-    }
-    mpu.getFIFOBytes(fifoBuffer, packetSize);
-    mpu.dmpGetQuaternion(&q, fifoBuffer);
-    mpu.dmpGetGravity(&gravity, &q);
-    mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-    mpu.dmpGetAccel(&aa, fifoBuffer);
-    mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+    mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
-    la[0] = aaReal.x * 1 / 8192. * 9.80655 + a_offset[0];
-    la[1] = aaReal.y * 1 / 8192. * 9.80655 + a_offset[1];
-    la[2] = aaReal.z * 1 / 8192. * 9.80655 + a_offset[2];
+    la[0] = ax * 1 / 8192. * 9.80655 + a_offset[0];
+    la[1] = ay * 1 / 8192. * 9.80655 + a_offset[1];
+    la[2] = az * 1 / 8192. * 9.80655 + a_offset[2];
 
-    av[0] = ypr[2] + g_offset[0];
-    av[1] = ypr[1] + g_offset[1];
-    av[2] = ypr[0] + g_offset[2];
+    av[0] = gx * M_PI/180.0 + g_offset[0];
+    av[1] = gy * M_PI/180.0 + g_offset[1];
+    av[2] = gz * M_PI/180.0 + g_offset[2];
 
     if(wait_for_warmup()) {
         if(set_offsets()) { publish_imu(); }
@@ -291,10 +266,10 @@ void MPU6050Node::publish_imu() {
     mag_msg.header.stamp    = now;
     mag_msg.header.frame_id = frame_id;
 
-    imu_msg.orientation.x = q.x;
-    imu_msg.orientation.y = q.y;
-    imu_msg.orientation.z = q.z;
-    imu_msg.orientation.w = q.w;
+    //imu_msg.orientation.x = q.x;
+    //imu_msg.orientation.y = q.y;
+    //imu_msg.orientation.z = q.z;
+    //imu_msg.orientation.w = q.w;
 
     imu_msg.linear_acceleration_covariance[0] = linear_acceleration_covariance;
     imu_msg.linear_acceleration_covariance[4] = linear_acceleration_covariance;
